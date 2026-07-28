@@ -1,0 +1,12 @@
+node_modules
+.git
+.gitignore
+data/db.json
+data/uploads/*
+!data/uploads/.gitkeep
+*.log
+tunnel.log
+test_data
+test_data2
+.tunnel-subdomain
+DEPLOY.md
