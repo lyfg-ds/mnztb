@@ -4,6 +4,9 @@ data/uploads/*
 !data/uploads/.gitkeep
 test_data/
 test_data2/
+test_files/
+test_upload/
+test_upload2/
 *.log
 .tunnel-subdomain
 tunnel.log

@@ -53,7 +53,7 @@ const storage = multer.diskStorage({
     cb(null, crypto.randomBytes(12).toString('hex') + ext);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
+const upload = multer({ storage, limits: { fileSize: 200 * 1024 * 1024 } });
 
 function genId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
@@ -395,6 +395,18 @@ app.get('/api/bid-file/:bidId', adminApiProtect, (req, res) => {
   const filePath = path.join(UPLOAD_DIR, b.file.storedName);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件丢失' });
   res.download(filePath, b.file.originalName);
+});
+
+// 全局错误处理：把文件超限(multer)转成友好提示，避免返回 500
+app.use((err, req, res, next) => {
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ ok: false, error: '文件过大：单个文件最大 200MB' });
+  }
+  if (err) {
+    console.error('未捕获错误:', err);
+    return res.status(500).json({ ok: false, error: '服务器内部错误' });
+  }
+  next();
 });
 
 app.listen(PORT, () => {
