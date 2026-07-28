@@ -57,3 +57,36 @@ function qrSVG(seed) {
   };
   return `<svg viewBox="0 0 21 21" width="154" height="154" shape-rendering="crispEdges" fill="#111827">${cells}${finder(0, 0)}${finder(14, 0)}${finder(0, 14)}</svg>`;
 }
+
+// 分片上传：把大文件切成 5MB 小片逐片上传，绕过云托管网关对单次请求体的 ~20MB 限制
+async function uploadInChunks(file, onProgress) {
+  const CHUNK = 5 * 1024 * 1024;
+  const total = Math.max(1, Math.ceil(file.size / CHUNK));
+  const initRes = await fetch('/api/upload/init', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileName: file.name, fileSize: file.size, totalChunks: total }),
+  });
+  const initData = await initRes.json();
+  if (!initRes.ok) throw new Error(initData.error || '初始化上传失败');
+  const uploadId = initData.uploadId;
+  for (let i = 0; i < total; i++) {
+    const blob = file.slice(i * CHUNK, Math.min((i + 1) * CHUNK, file.size));
+    const fd = new FormData();
+    fd.append('chunk', blob, 'chunk-' + i);
+    const r = await fetch('/api/upload/chunk?uploadId=' + encodeURIComponent(uploadId) + '&index=' + i, { method: 'POST', body: fd });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.error || '分片上传失败');
+    }
+    if (onProgress) onProgress((i + 1) / total);
+  }
+  const compRes = await fetch('/api/upload/complete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uploadId }),
+  });
+  const compData = await compRes.json();
+  if (!compRes.ok) throw new Error(compData.error || '合并失败');
+  return compData.file;
+}

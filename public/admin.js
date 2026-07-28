@@ -21,15 +21,31 @@ if (!ADMIN_KEY) {
 
 document.getElementById('pubForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const fd = new FormData(e.target);
-  const btn = e.target.querySelector('button');
-  btn.disabled = true; btn.textContent = '发布中…';
+  const form = e.target;
+  const btn = form.querySelector('button');
+  const fileInput = form.querySelector('input[type=file]');
+  const file = fileInput.files[0];
+  if (!form.title.value.trim()) { toast('请填写项目名称'); return; }
+  if (!file) { toast('请选择招标文件'); return; }
+  btn.disabled = true; btn.textContent = '上传中…';
   try {
-    const r = await apiFetch('/api/projects', { method: 'POST', body: fd });
+    const fileMeta = await uploadInChunks(file, (p) => { btn.textContent = '上传中 ' + Math.round(p * 100) + '%'; });
+    const payload = {
+      title: form.title.value,
+      code: form.code.value,
+      organizer: form.organizer.value,
+      budget: form.budget.value,
+      price: form.price.value,
+      deadline: form.deadline.value,
+      description: form.description.value,
+      file: fileMeta,
+    };
+    btn.textContent = '发布中…';
+    const r = await apiFetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || '发布失败');
     toast('项目已发布 ✅');
-    e.target.reset();
+    form.reset();
     loadOrganizer();
   } catch (err) {
     toast(err.message);

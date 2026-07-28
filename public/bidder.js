@@ -221,13 +221,25 @@ async function openBuy(id) {
   if (bidForm) {
     bidForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fd = new FormData(bidForm);
-      fd.append('projectId', id);
-      fd.append('token', getToken());
+      const fileInput = bidForm.querySelector('input[type=file]');
+      const file = fileInput.files[0];
+      if (!file) { toast('请选择投标文件'); return; }
       const btn = bidForm.querySelector('button');
-      btn.disabled = true; btn.textContent = '提交中…';
+      btn.disabled = true; btn.textContent = '上传中…';
       try {
-        const r = await fetch('/api/bids', { method: 'POST', body: fd });
+        const fileMeta = await uploadInChunks(file, (p) => { btn.textContent = '上传中 ' + Math.round(p * 100) + '%'; });
+        const payload = {
+          projectId: id,
+          amount: bidForm.amount.value,
+          remark: bidForm.remark.value,
+          file: fileMeta,
+        };
+        btn.textContent = '提交中…';
+        const r = await fetch('/api/bids', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() },
+          body: JSON.stringify(payload),
+        });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || '提交失败');
         toast('投标提交成功 ✅');

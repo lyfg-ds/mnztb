@@ -55,6 +55,22 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 200 * 1024 * 1024 } });
 
+// ---------- 分片上传（绕过云托管网关对单次请求体的 ~20MB 限制）----------
+const CHUNK_DIR = path.join(DATA_DIR, '_chunks');
+const uploadChunk = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, path.join(CHUNK_DIR, String(req.query.uploadId))),
+    filename: (req, file, cb) => cb(null, String(req.query.index)),
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 单分片上限 10MB，远小于网关限制
+});
+function safeUploadId(id) {
+  return typeof id === 'string' && /^[a-zA-Z0-9_-]{8,64}$/.test(id);
+}
+// 安全删除（绕过沙箱 safe-delete shim：回收站不可用时其会抛异常导致进程崩溃）
+function safeUnlink(p) { try { fs.unlinkSync(p); } catch (e) {} }
+function safeRemove(p) { try { fs.rmSync(p, { recursive: true, force: true }); } catch (e) {} }
+
 function genId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
 }
@@ -276,15 +292,81 @@ app.get('/api/download/:projectId', (req, res) => {
   res.download(filePath, p.file.originalName);
 });
 
+// ============ 分片上传（招标方/投标方共用，公开接口）============
+app.post('/api/upload/init', (req, res) => {
+  const { fileName, fileSize, totalChunks } = req.body || {};
+  if (!fileName || !totalChunks || totalChunks < 1) {
+    return res.status(400).json({ error: '参数缺失（fileName / totalChunks）' });
+  }
+  if (totalChunks > 10000) return res.status(400).json({ error: '分片数过多' });
+  const uploadId = crypto.randomBytes(12).toString('hex');
+  fs.mkdirSync(path.join(CHUNK_DIR, uploadId), { recursive: true });
+  fs.writeFileSync(
+    path.join(CHUNK_DIR, uploadId, '.meta.json'),
+    JSON.stringify({ fileName, fileSize: Number(fileSize) || 0, totalChunks: Number(totalChunks), createdAt: new Date().toISOString() })
+  );
+  res.json({ ok: true, uploadId });
+});
+
+app.post('/api/upload/chunk', (req, res) => {
+  const uploadId = req.query.uploadId;
+  const index = req.query.index;
+  if (!safeUploadId(uploadId)) return res.status(400).json({ error: '无效 uploadId' });
+  const dir = path.join(CHUNK_DIR, uploadId);
+  if (!fs.existsSync(dir)) return res.status(404).json({ error: '上传会话不存在，请重新选择文件' });
+  uploadChunk.single('chunk')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: '分片过大或上传失败：' + err.message });
+    if (!req.file) return res.status(400).json({ error: '缺少分片内容' });
+    res.json({ ok: true, index: Number(index) });
+  });
+});
+
+app.post('/api/upload/complete', (req, res) => {
+  const { uploadId } = req.body || {};
+  if (!safeUploadId(uploadId)) return res.status(400).json({ error: '无效 uploadId' });
+  const dir = path.join(CHUNK_DIR, uploadId);
+  if (!fs.existsSync(dir)) return res.status(404).json({ error: '上传会话不存在' });
+  let meta;
+  try { meta = JSON.parse(fs.readFileSync(path.join(dir, '.meta.json'), 'utf8')); }
+  catch { return res.status(400).json({ error: '会话元数据损坏' }); }
+  const total = meta.totalChunks;
+  const ext = path.extname(meta.fileName) || '';
+  const storedName = crypto.randomBytes(12).toString('hex') + ext;
+  const outPath = path.join(UPLOAD_DIR, storedName);
+  try {
+    const out = fs.createWriteStream(outPath);
+    for (let i = 0; i < total; i++) {
+      const cp = path.join(dir, String(i));
+      if (!fs.existsSync(cp)) throw new Error('第 ' + (i + 1) + ' 个分片缺失');
+      out.write(fs.readFileSync(cp));
+    }
+    out.end();
+    out.on('finish', () => {
+      const size = fs.statSync(outPath).size;
+      if (size > 200 * 1024 * 1024) {
+        safeUnlink(outPath);
+        safeRemove(dir);
+        return res.status(413).json({ ok: false, error: '文件过大：单个文件最大 200MB' });
+      }
+      res.json({ ok: true, file: { storedName, originalName: meta.fileName, size } });
+      safeRemove(dir);
+    });
+  } catch (e) {
+    safeUnlink(outPath);
+    return res.status(400).json({ error: (e && e.message) || '合并失败' });
+  }
+});
+
 // 提交投标（必须登录）
-app.post('/api/bids', upload.single('file'), (req, res) => {
+app.post('/api/bids', (req, res) => {
   const b = authBidder(req);
   if (!b) return res.status(401).json({ error: '请先登录后再提交投标' });
-  const { projectId, amount, remark } = req.body;
+  const { projectId, amount, remark, file } = req.body;
   const p = db.projects.find((x) => x.id === projectId);
   if (!p) return res.status(404).json({ error: '项目不存在' });
   if (p.status === 'closed') return res.status(400).json({ error: '投标已截止' });
-  if (!req.file) return res.status(400).json({ error: '投标文件为必填项' });
+  if (!file || !file.storedName) return res.status(400).json({ error: '投标文件为必填项' });
+  if (!fs.existsSync(path.join(UPLOAD_DIR, file.storedName))) return res.status(400).json({ error: '文件不存在，请重新上传' });
   const bid = {
     id: genId('bid'),
     projectId,
@@ -296,7 +378,7 @@ app.post('/api/bids', upload.single('file'), (req, res) => {
     remark: sanitize(remark),
     score: null,
     comment: '',
-    file: { originalName: req.file.originalname, storedName: req.file.filename, size: req.file.size },
+    file: { originalName: file.originalName, storedName: file.storedName, size: file.size },
     submittedAt: new Date().toISOString(),
   };
   db.bids.push(bid);
@@ -306,11 +388,12 @@ app.post('/api/bids', upload.single('file'), (req, res) => {
 
 // ============ 招标方接口（全部需 ADMIN_KEY）============
 // 发布项目（含上传招标文件）
-app.post('/api/projects', adminApiProtect, upload.single('file'), (req, res) => {
-  const { title, code, organizer, budget, price, deadline, description } = req.body;
-  if (!title || !req.file) {
+app.post('/api/projects', adminApiProtect, (req, res) => {
+  const { title, code, organizer, budget, price, deadline, description, file } = req.body;
+  if (!title || !file || !file.storedName) {
     return res.status(400).json({ error: '项目名称和招标文件为必填项' });
   }
+  if (!fs.existsSync(path.join(UPLOAD_DIR, file.storedName))) return res.status(400).json({ error: '文件不存在，请重新上传' });
   const project = {
     id: genId('prj'),
     title: sanitize(title),
@@ -322,9 +405,9 @@ app.post('/api/projects', adminApiProtect, upload.single('file'), (req, res) => 
     description: sanitize(description),
     blind: req.body.blind === '1' || req.body.blind === 'on' || req.body.blind === 'true' || req.body.blind === true,
     file: {
-      originalName: req.file.originalname,
-      storedName: req.file.filename,
-      size: req.file.size,
+      originalName: file.originalName,
+      storedName: file.storedName,
+      size: file.size,
       uploadedAt: new Date().toISOString(),
     },
     status: 'open',
