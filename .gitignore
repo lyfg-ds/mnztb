@@ -1,0 +1,11 @@
+node_modules/
+data/db.json
+data/uploads/*
+!data/uploads/.gitkeep
+test_data/
+test_data2/
+*.log
+.tunnel-subdomain
+tunnel.log
+.DS_Store
+.env

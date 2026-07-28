@@ -1,0 +1,21 @@
+# Render 部署配置（Blueprint）
+# 用法：在 Render 控制台 New > Blueprint，选择含此文件的仓库即可自动识别。
+services:
+  - type: web
+    name: bidding-platform
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/projects
+    envVars:
+      - key: NODE_VERSION
+        value: "18"
+      - key: ADMIN_KEY
+        sync: false          # 部署时在控制台手动填写你的招标方密钥
+      - key: DATA_DIR
+        value: /data         # 配合下方磁盘卷，保证数据持久化
+    disk:
+      name: bidding-data
+      mountPath: /data
+      sizeGB: 1

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>招投标大赛 · 招标方后台</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>🏆 招投标大赛 · 招标方后台</h1>
+    <p>发布招标项目 · 上传招标文件 · 查看购标/投标 · 开标评标 · 公布中标</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>发布招标项目并上传招标文件</h2>
+      <form id="pubForm">
+        <div class="grid2">
+          <div><label>项目名称 *</label><input name="title" required placeholder="如：校园智慧停车系统开发" /></div>
+          <div><label>招标编号</label><input name="code" placeholder="留空自动生成，如 BID-2026-001" /></div>
+          <div><label>招标方 / 单位</label><input name="organizer" placeholder="如：信息学院" /></div>
+          <div><label>项目预算（元）</label><input name="budget" placeholder="如：200000" /></div>
+          <div><label>标书售价（元，模拟）</label><input name="price" type="number" value="0" placeholder="0 表示免费" /></div>
+          <div><label>投标截止时间</label><input name="deadline" type="datetime-local" /></div>
+        </div>
+        <div style="margin-top:12px"><label>项目说明</label><textarea name="description" placeholder="项目背景、范围、评分标准等"></textarea></div>
+        <div style="margin-top:12px"><label>招标文件（PDF/Word 等）*</label><input type="file" name="file" required /></div>
+        <div style="margin-top:12px" class="muted-check"><input type="checkbox" name="blind" value="1" /><label style="margin:0">盲评（评标阶段隐藏投标人姓名/公司，开标后公布）</label></div>
+        <div style="margin-top:16px"><button class="btn" type="submit">发布项目</button></div>
+      </form>
+    </div>
+
+    <div class="sec-title">我发布的项目</div>
+    <div id="orgList"></div>
+  </main>
+
+  <!-- 开标评标弹窗 -->
+  <div class="modal-bg" id="evalModal">
+    <div class="modal">
+      <button class="close-x" onclick="closeEval()">×</button>
+      <div id="evalContent"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/shared.js"></script>
+  <script src="/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>招投标大赛 · 参赛方门户</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    .topbar { display:flex; align-items:center; justify-content:space-between; padding:10px 16px;
+      background:#fff; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:30; }
+    .topbar .brand { font-weight:800; color:#1d4ed8; font-size:15px; }
+    .topbar .right { display:flex; align-items:center; gap:10px; }
+    .topbar .who { font-size:13px; color:#374151; }
+    .btn.sm { padding:6px 12px; font-size:13px; }
+    .login-tabs { display:flex; gap:8px; margin-bottom:12px; }
+    .login-tabs span { flex:1; text-align:center; padding:8px; border-radius:8px; cursor:pointer;
+      background:#f3f4f6; color:#6b7280; font-weight:600; }
+    .login-tabs span.active { background:#1d4ed8; color:#fff; }
+    .center-row { display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; margin-top:8px; }
+    .center-row span { font-size:14px; color:#374151; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">🏆 招投标大赛 · 参赛方门户</div>
+    <div class="right" id="topRight"></div>
+  </div>
+
+  <header>
+    <h1>参赛方门户</h1>
+    <p>登录后购买标书 · 下载标书 · 提交投标 · 在「我的中心」查看自己的记录</p>
+  </header>
+
+  <main>
+    <div class="sec-title">可参与的项目（进行中）</div>
+    <div id="bidList"></div>
+  </main>
+
+  <!-- 项目详情 + 购买 + 投标 弹窗 -->
+  <div class="modal-bg" id="buyModal">
+    <div class="modal">
+      <button class="close-x" onclick="closeModal()">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <!-- 模拟支付弹窗 -->
+  <div class="modal-bg" id="payModal">
+    <div class="modal">
+      <button class="close-x" onclick="closePay()">×</button>
+      <div id="payContent"></div>
+    </div>
+  </div>
+
+  <!-- 开标结果弹窗 -->
+  <div class="modal-bg" id="resultModal">
+    <div class="modal">
+      <button class="close-x" onclick="closeResult()">×</button>
+      <div id="resultContent"></div>
+    </div>
+  </div>
+
+  <!-- 登录 / 注册 弹窗 -->
+  <div class="modal-bg" id="loginModal">
+    <div class="modal">
+      <button class="close-x" onclick="closeLogin()">×</button>
+      <div id="loginContent"></div>
+    </div>
+  </div>
+
+  <!-- 我的中心 弹窗 -->
+  <div class="modal-bg" id="centerModal">
+    <div class="modal">
+      <button class="close-x" onclick="closeCenter()">×</button>
+      <div id="centerContent"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/shared.js"></script>
+  <script src="/bidder.js"></script>
+</body>
+</html>
