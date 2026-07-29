@@ -11,6 +11,7 @@ test_chunk/
 test_chunk*.mjs
 test_cos_mount.mjs
 test_replace.mjs
+test_replace_online.mjs
 test_replace_data/
 verify_persist.mjs
 bidding-platform.zip
