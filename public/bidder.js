@@ -130,7 +130,7 @@ function openCenter() {
     return `<div class="center-row"><span>${esc(name)}${b.amount ? ' · 报价¥' + esc(b.amount) : ''}</span>
       <span style="display:flex;gap:8px;">
         <a class="btn sm" href="/api/bidder/my-bid-file/${b.id}?token=${getToken()}" target="_blank">⬇ 我的投标文件</a>
-        <button class="btn sm" onclick="closeCenter();openBuy('${esc(b.projectId)}')">替换</button>
+        <button class="btn sm" onclick="openBuyFromCenter('${esc(b.projectId)}')">替换</button>
       </span></div>`;
   }).join('');
   document.getElementById('centerContent').innerHTML = html;
@@ -174,6 +174,16 @@ async function loadBidder() {
 
 let pendingBuy = null;
 
+async function openBuyFromCenter(id) {
+  closeCenter();
+  try {
+    await openBuy(id);
+  } catch (e) {
+    console.error(e);
+    toast('打开替换页面失败：' + (e && e.message ? e.message : '未知错误'));
+  }
+}
+
 async function openBuy(id) {
   const p = await (await fetch(`/api/projects/${id}`)).json();
   if (p.evaluationOpened) { closeModal(); openResult(id); return; }
@@ -209,13 +219,13 @@ async function openBuy(id) {
           ? `<div class="hint" style="color:#16a34a">✅ 您已提交投标，可重新上传替换</div>
              <div class="meta">当前投标文件：<b>${esc(myBid.file.originalName)}</b>（${fmtSize(myBid.file.size)}）</div>
              <form id="replaceForm">
-               <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" type="text" inputmode="text" value="${esc(myBid.amount || '')}" placeholder="选填，可填写文字说明"></div>
+               <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" type="number" inputmode="numeric" pattern="[0-9]*" value="${esc(myBid.amount || '')}" placeholder="只能填写数字" oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
                <div style="margin-top:10px"><label>投标说明</label><textarea name="remark" placeholder="选填">${esc(myBid.remark || '')}</textarea></div>
                <div style="margin-top:10px"><label>新的投标文件 *</label><input type="file" name="file" required></div>
                <div style="margin-top:14px"><button class="btn" type="submit">替换投标文件</button></div>
              </form>`
           : `<form id="bidForm">
-              <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" type="text" inputmode="text" placeholder="选填，可填写文字说明"></div>
+              <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="只能填写数字" oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
               <div style="margin-top:10px"><label>投标说明</label><textarea name="remark" placeholder="选填"></textarea></div>
               <div style="margin-top:10px"><label>投标文件（方案/报价单等）*</label><input type="file" name="file" required></div>
               <div style="margin-top:14px"><button class="btn" type="submit">提交投标</button></div>
