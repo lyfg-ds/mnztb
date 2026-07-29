@@ -209,13 +209,13 @@ async function openBuy(id) {
           ? `<div class="hint" style="color:#16a34a">✅ 您已提交投标，可重新上传替换</div>
              <div class="meta">当前投标文件：<b>${esc(myBid.file.originalName)}</b>（${fmtSize(myBid.file.size)}）</div>
              <form id="replaceForm">
-               <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" value="${esc(myBid.amount || '')}" placeholder="选填"></div>
+               <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" type="text" inputmode="text" value="${esc(myBid.amount || '')}" placeholder="选填，可填写文字说明"></div>
                <div style="margin-top:10px"><label>投标说明</label><textarea name="remark" placeholder="选填">${esc(myBid.remark || '')}</textarea></div>
                <div style="margin-top:10px"><label>新的投标文件 *</label><input type="file" name="file" required></div>
                <div style="margin-top:14px"><button class="btn" type="submit">替换投标文件</button></div>
              </form>`
           : `<form id="bidForm">
-              <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" placeholder="选填"></div>
+              <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" type="text" inputmode="text" placeholder="选填，可填写文字说明"></div>
               <div style="margin-top:10px"><label>投标说明</label><textarea name="remark" placeholder="选填"></textarea></div>
               <div style="margin-top:10px"><label>投标文件（方案/报价单等）*</label><input type="file" name="file" required></div>
               <div style="margin-top:14px"><button class="btn" type="submit">提交投标</button></div>
