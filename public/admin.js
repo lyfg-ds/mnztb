@@ -74,6 +74,7 @@ async function loadOrganizer() {
               ${p.status === 'open' ? '关闭报名' : '重新开启'}
             </button>
             <button class="btn small" onclick="openEval('${p.id}')">开标评标</button>
+            <button class="btn small danger" onclick="deleteProject('${p.id}')">删除项目</button>
           </div>
         </div>
         <div class="meta">
@@ -97,6 +98,18 @@ async function toggleStatus(id, status) {
     body: JSON.stringify({ status }),
   });
   loadOrganizer();
+}
+
+async function deleteProject(id) {
+  if (!confirm('确定删除该项目吗？\n该项目下的所有购标记录、投标文件和评分数据将一并删除，且无法恢复。')) return;
+  try {
+    const r = await apiFetch(`/api/admin/${id}`, { method: 'DELETE' });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || '删除失败'); }
+    toast('项目已删除 ✅');
+    loadOrganizer();
+  } catch (err) {
+    toast(err.message);
+  }
 }
 
 async function loadAdmin(id) {

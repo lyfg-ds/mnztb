@@ -497,6 +497,20 @@ app.get('/api/admin/:projectId/file', adminApiProtect, (req, res) => {
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: '标书文件丢失' });
   res.download(filePath, p.file.originalName);
 });
+// 删除项目（同时清理招标文件 + 该项目下所有投标文件）
+app.delete('/api/admin/:projectId', adminApiProtect, (req, res) => {
+  const idx = db.projects.findIndex((x) => x.id === req.params.projectId);
+  if (idx === -1) return res.status(404).json({ error: '项目不存在' });
+  const p = db.projects[idx];
+  if (p.file && p.file.storedName) safeUnlink(path.join(UPLOAD_DIR, p.file.storedName));
+  const related = db.bids.filter((b) => b.projectId === p.id);
+  related.forEach((b) => { if (b.file && b.file.storedName) safeUnlink(path.join(UPLOAD_DIR, b.file.storedName)); });
+  db.bids = db.bids.filter((b) => b.projectId !== p.id);
+  db.purchases = db.purchases.filter((x) => x.projectId !== p.id);
+  db.projects.splice(idx, 1);
+  saveDB(db);
+  res.json({ ok: true });
+});
 app.get('/api/bid-file/:bidId', adminApiProtect, (req, res) => {
   const b = db.bids.find((x) => x.id === req.params.bidId);
   if (!b) return res.status(404).json({ error: '投标记录不存在' });

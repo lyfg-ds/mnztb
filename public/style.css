@@ -43,6 +43,8 @@ textarea { resize: vertical; min-height: 64px; }
 .btn:hover { background: var(--primary-dark); }
 .btn.ghost { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
 .btn.green { background: var(--green); }
+.btn.danger { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.btn.danger:hover { background: #fee2e2; }
 .btn.small { padding: 6px 12px; font-size: 13px; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .status { font-size: 12px; padding: 3px 9px; border-radius: 20px; font-weight: 600; }
