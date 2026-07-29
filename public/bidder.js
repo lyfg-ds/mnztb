@@ -138,6 +138,40 @@ function openCenter() {
 }
 function closeCenter() { document.getElementById('centerModal').classList.remove('show'); }
 
+// ---------- 投标情况（项目卡片入口） ----------
+async function openBidStatus(projectId) {
+  try {
+    const p = await (await fetch(`/api/projects/${projectId}`)).json();
+    const myBid = me && me.bids && me.bids.find((x) => x.projectId === projectId);
+    if (!myBid) {
+      toast('尚未投标，无法查看投标情况');
+      return;
+    }
+    const statusText = p.evaluationOpened ? '<span class="status closed">已开标</span>' : '<span class="status open">进行中</span>';
+    document.getElementById('bidStatusContent').innerHTML = `
+      <h2>我的投标情况 · ${esc(p.title)} ${statusText}</h2>
+      <div class="meta">编号 ${esc(p.code)} · 招标方 ${esc(p.organizer || '—')}</div>
+      <div class="center-row"><span>投标报价</span><b>${myBid.amount ? '¥' + esc(myBid.amount) : '未填写'}</b></div>
+      ${myBid.remark ? `<div class="center-row"><span>投标说明</span><span>${esc(myBid.remark)}</span></div>` : ''}
+      <div class="center-row">
+        <span>投标文件</span>
+        <span style="display:flex;gap:8px;align-items:center;">
+          <a class="btn sm" href="/api/bidder/my-bid-file/${myBid.id}?token=${getToken()}" target="_blank">⬇ 我的投标文件</a>
+          ${p.evaluationOpened ? '' : `<button class="btn sm" onclick="closeBidStatus();openBuy('${esc(projectId)}')">替换</button>`}
+        </span>
+      </div>
+      ${p.evaluationOpened
+        ? '<div class="hint" style="color:#16a34a;margin-top:12px">项目已开标，投标文件不可替换。如需查看开标结果，请点击「查看详情 / 开标结果」。</div>'
+        : '<div class="hint" style="margin-top:12px">项目进行中，可点击「替换」按钮重新上传投标文件。</div>'}
+    `;
+    document.getElementById('bidStatusModal').classList.add('show');
+  } catch (e) {
+    console.error(e);
+    toast('打开投标情况失败：' + (e && e.message ? e.message : '未知错误'));
+  }
+}
+function closeBidStatus() { document.getElementById('bidStatusModal').classList.remove('show'); }
+
 // ---------- 项目列表 ----------
 async function loadBidder() {
   const box = document.getElementById('bidList');
@@ -165,7 +199,10 @@ async function loadBidder() {
         </div>
         <div class="meta">${esc(p.description || '（无项目说明）')}</div>
         <div class="meta">招标文件：<b>${esc(p.fileOriginalName)}</b></div>
-        <button class="btn" onclick="openBuy('${p.id}')">${p.evaluationOpened ? '查看详情 / 开标结果' : '查看 / 购买标书'}</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn" onclick="openBuy('${p.id}')">${p.evaluationOpened ? '查看详情 / 开标结果' : '查看 / 购买标书'}</button>
+          ${(me && me.bids && me.bids.some((x) => x.projectId === p.id)) ? `<button class="btn" style="background:#0d9488" onclick="openBidStatus('${p.id}')">投标情况</button>` : ''}
+        </div>
       </div>`).join('');
   } catch (e) {
     box.innerHTML = '<div class="empty">加载失败</div>';
@@ -381,5 +418,6 @@ document.getElementById('payModal').addEventListener('click', (e) => { if (e.tar
 document.getElementById('resultModal').addEventListener('click', (e) => { if (e.target.id === 'resultModal') closeResult(); });
 document.getElementById('loginModal').addEventListener('click', (e) => { if (e.target.id === 'loginModal') closeLogin(); });
 document.getElementById('centerModal').addEventListener('click', (e) => { if (e.target.id === 'centerModal') closeCenter(); });
+document.getElementById('bidStatusModal').addEventListener('click', (e) => { if (e.target.id === 'bidStatusModal') closeBidStatus(); });
 
 loadMe().then(loadBidder);
