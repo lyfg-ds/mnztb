@@ -237,7 +237,7 @@ app.get('/api/bidder/me', (req, res) => {
     .map((x) => ({ id: x.id, projectId: x.projectId, amount: x.amount, purchasedAt: x.purchasedAt }));
   const bids = db.bids
     .filter((x) => x.bidderId === b.id)
-    .map((x) => ({ id: x.id, projectId: x.projectId, amount: x.amount, submittedAt: x.submittedAt, fileOriginalName: x.file.originalName }));
+    .map((x) => ({ id: x.id, projectId: x.projectId, amount: x.amount, submittedAt: x.submittedAt, file: x.file }));
   res.json({ bidder: { name: b.name, company: b.company, phone: b.phone }, purchases, bids });
 });
 app.get('/api/bidder/my-bid-file/:bidId', (req, res) => {
