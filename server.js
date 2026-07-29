@@ -386,6 +386,31 @@ app.post('/api/bids', (req, res) => {
   res.json({ ok: true, bid });
 });
 
+// 替换已提交的投标文件（必须登录，且只能替换自己的；项目截止/开标后不可替换）
+app.post('/api/bids/:bidId/replace', (req, res) => {
+  const b = authBidder(req);
+  if (!b) return res.status(401).json({ error: '请先登录后再操作' });
+  const bid = db.bids.find((x) => x.id === req.params.bidId && x.bidderId === b.id);
+  if (!bid) return res.status(404).json({ error: '投标记录不存在' });
+  const p = db.projects.find((x) => x.id === bid.projectId);
+  if (!p) return res.status(404).json({ error: '项目不存在' });
+  if (p.status === 'closed') return res.status(400).json({ error: '投标已截止，无法替换' });
+  if (p.evaluationOpened) return res.status(400).json({ error: '已开标，无法替换' });
+  const { amount, remark, file } = req.body || {};
+  if (!file || !file.storedName) return res.status(400).json({ error: '新投标文件为必填项' });
+  if (!fs.existsSync(path.join(UPLOAD_DIR, file.storedName))) return res.status(400).json({ error: '文件不存在，请重新上传' });
+  const oldStored = bid.file && bid.file.storedName;
+  bid.amount = sanitize(amount);
+  bid.remark = sanitize(remark);
+  bid.file = { originalName: file.originalName, storedName: file.storedName, size: file.size };
+  bid.submittedAt = new Date().toISOString();
+  if (oldStored && oldStored !== file.storedName) {
+    safeUnlink(path.join(UPLOAD_DIR, oldStored));
+  }
+  saveDB(db);
+  res.json({ ok: true, bid });
+});
+
 // ============ 招标方接口（全部需 ADMIN_KEY）============
 // 发布项目（含上传招标文件）
 app.post('/api/projects', adminApiProtect, (req, res) => {

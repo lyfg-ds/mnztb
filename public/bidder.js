@@ -128,7 +128,10 @@ function openCenter() {
     const proj = allProjects.find((x) => x.id === b.projectId);
     const name = proj ? proj.title : '(项目)';
     return `<div class="center-row"><span>${esc(name)}${b.amount ? ' · 报价¥' + esc(b.amount) : ''}</span>
-      <a class="btn sm" href="/api/bidder/my-bid-file/${b.id}?token=${getToken()}" target="_blank">⬇ 我的投标文件</a></div>`;
+      <span style="display:flex;gap:8px;">
+        <a class="btn sm" href="/api/bidder/my-bid-file/${b.id}?token=${getToken()}" target="_blank">⬇ 我的投标文件</a>
+        <button class="btn sm" onclick="closeCenter();openBuy('${esc(b.projectId)}')">替换</button>
+      </span></div>`;
   }).join('');
   document.getElementById('centerContent').innerHTML = html;
   document.getElementById('centerModal').classList.add('show');
@@ -177,6 +180,7 @@ async function openBuy(id) {
 
   const hasBought = !!(me && me.purchases && me.purchases.some((x) => x.projectId === id));
   const loggedIn = !!me;
+  const myBid = me && me.bids && me.bids.find((x) => x.projectId === id);
 
   document.getElementById('modalContent').innerHTML = `
     <h2>${esc(p.title)}</h2>
@@ -199,14 +203,23 @@ async function openBuy(id) {
       ? `<a class="btn" href="/api/download/${p.id}?token=${getToken()}" target="_blank">⬇ 下载招标文件</a>`
       : '<div class="hint">请先完成第一步购买后下载</div>'}
 
-    <div class="sec-title">第三步：提交投标</div>
+    <div class="sec-title">第三步：${myBid ? '替换投标文件' : '提交投标'}</div>
     ${hasBought
-      ? `<form id="bidForm">
-          <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" placeholder="选填"></div>
-          <div style="margin-top:10px"><label>投标说明</label><textarea name="remark" placeholder="选填"></textarea></div>
-          <div style="margin-top:10px"><label>投标文件（方案/报价单等）*</label><input type="file" name="file" required></div>
-          <div style="margin-top:14px"><button class="btn" type="submit">提交投标</button></div>
-        </form>`
+      ? (myBid
+          ? `<div class="hint" style="color:#16a34a">✅ 您已提交投标，可重新上传替换</div>
+             <div class="meta">当前投标文件：<b>${esc(myBid.file.originalName)}</b>（${fmtSize(myBid.file.size)}）</div>
+             <form id="replaceForm">
+               <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" value="${esc(myBid.amount || '')}" placeholder="选填"></div>
+               <div style="margin-top:10px"><label>投标说明</label><textarea name="remark" placeholder="选填">${esc(myBid.remark || '')}</textarea></div>
+               <div style="margin-top:10px"><label>新的投标文件 *</label><input type="file" name="file" required></div>
+               <div style="margin-top:14px"><button class="btn" type="submit">替换投标文件</button></div>
+             </form>`
+          : `<form id="bidForm">
+              <div style="margin-top:10px"><label>投标报价（元）</label><input name="amount" placeholder="选填"></div>
+              <div style="margin-top:10px"><label>投标说明</label><textarea name="remark" placeholder="选填"></textarea></div>
+              <div style="margin-top:10px"><label>投标文件（方案/报价单等）*</label><input type="file" name="file" required></div>
+              <div style="margin-top:14px"><button class="btn" type="submit">提交投标</button></div>
+            </form>`)
       : '<div class="hint">请先购买标书后再提交投标</div>'}
   `;
   document.getElementById('buyModal').classList.add('show');
@@ -248,6 +261,40 @@ async function openBuy(id) {
       } catch (err) {
         toast(err.message);
         btn.disabled = false; btn.textContent = '提交投标';
+      }
+    });
+  }
+
+  const replaceForm = document.getElementById('replaceForm');
+  if (replaceForm && myBid) {
+    replaceForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = replaceForm.querySelector('input[type=file]');
+      const file = fileInput.files[0];
+      if (!file) { toast('请选择新的投标文件'); return; }
+      const btn = replaceForm.querySelector('button');
+      btn.disabled = true; btn.textContent = '上传中…';
+      try {
+        const fileMeta = await uploadInChunks(file, (p) => { btn.textContent = '上传中 ' + Math.round(p * 100) + '%'; });
+        const payload = {
+          amount: replaceForm.amount.value,
+          remark: replaceForm.remark.value,
+          file: fileMeta,
+        };
+        btn.textContent = '替换中…';
+        const r = await fetch(`/api/bids/${myBid.id}/replace`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() },
+          body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || '替换失败');
+        toast('投标文件替换成功 ✅');
+        await loadMe();
+        setTimeout(() => closeModal(), 800);
+      } catch (err) {
+        toast(err.message);
+        btn.disabled = false; btn.textContent = '替换投标文件';
       }
     });
   }

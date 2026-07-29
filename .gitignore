@@ -7,6 +7,13 @@ test_data2/
 test_files/
 test_upload/
 test_upload2/
+test_chunk/
+test_chunk*.mjs
+test_cos_mount.mjs
+test_replace.mjs
+test_replace_data/
+verify_persist.mjs
+bidding-platform.zip
 *.log
 .tunnel-subdomain
 tunnel.log
